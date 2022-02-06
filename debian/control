@@ -1,0 +1,13 @@
+Source: send-ip
+Section: python
+Priority: optional
+Maintainer: Himan Yerrakalva <yerrak@umich.edu>
+Build-Depends: debhelper (>= 7),
+               python3 (>= 3.5)
+Standards-Version: 4.5.1
+
+Package: send-ip
+Architecture: all
+Section: python
+Depends: python3-requests, python3 (>=3.5), ${misc:Depends}
+Description: Send ip address to UMARV Discord

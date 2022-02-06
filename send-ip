@@ -1,0 +1,96 @@
+#!/usr/bin/python3
+
+import requests
+import socket
+import getpass
+import subprocess
+import time
+import argparse
+import configparser
+import os
+import stat
+import sys
+
+desktop_file = """[Desktop Entry]
+Encoding=UTF-8
+Version=0.1
+Type=Application
+Terminal=true
+Exec={0}
+Name=IP Bot Script
+Comment=Send ip address to UMARV Discord
+"""
+desktop_file = desktop_file.format(os.path.abspath(__file__))
+
+def config_script(config_filename):
+    print('Please input the Discord webhook URL. You can get this from an ARV lead.')
+    print('The URL should be formatted like this: \033[94mhttps://discordapp.com/api/webhooks/[webhookid]/[webhooktoken]\033[0m')
+    url = input('URL: ')
+    config = configparser.ConfigParser()
+    config['General'] = {'discord_webhook': url}
+    with open(config_filename, 'w') as f:
+        config.write(f)
+    print('\nSaved Discord webhook URL!')
+    
+    config_dir = os.getenv('HOME') + '/.config/'
+    if not os.path.exists(config_dir + 'autostart/send-ip.desktop'):
+        os.makedirs(config_dir + 'autostart', exist_ok=True)
+        with open(config_dir + 'autostart/send-ip.desktop', 'w') as f:
+            f.write(desktop_file)
+        st = os.stat(config_dir + 'autostart/send-ip.desktop')
+        os.chmod(config_dir + 'autostart/send-ip.desktop', st.st_mode | stat.S_IEXEC)
+        print('\nAdded autostart entry!')
+        
+    
+def get_url(config_filename):
+    config = configparser.ConfigParser()
+    config.read(config_filename)
+    return config['General']['discord_webhook']
+
+def connect_wifi():
+    while True:
+        try:
+            wifi = subprocess.check_output('iwgetid').decode().split('"')[1]
+            if wifi == 'MGuest':
+                requests.post('http://192.0.2.1/login.html', data={'buttonClicked': '4', 'redirect_url': 'example.com/', 'err_flag': '0'})
+            return
+        except subprocess.CalledProcessError:
+            print("Not connected to wifi. Will try again in 30 seconds.")
+            time.sleep(30)
+
+def send_ip(url):
+    external_ip = requests.get('https://ident.me').text
+    hostname = socket.gethostname()
+    user = getpass.getuser()
+
+    print(external_ip)
+    print(hostname)
+    print(user)
+    
+    content = {'embeds': [{'author': {'name': hostname, 'icon_url': 'https://cdn.shopify.com/s/files/1/2187/3161/products/Raspberry_Pi_3_Model_A_Board_128x.jpg'}, 'description': f'The IP address of this machine is *{external_ip}*\n\nTerminal ssh command: `ssh -X {user}@{external_ip}`\n\nTo connect to this machine using VSCode, make sure you have the *Remote - SSH* extension installed, click the green button on the bottom left corner of the window, click *Connect to Host*, and paste in the following: `{user}@{external_ip}`\n\n*If you\'re unable to connect, please make sure you\'re connected to MGuest!*'}]}
+    r = requests.post(url=url, json=content)
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Connect to MGuest and send IP address to the UMARV Discord.')
+    parser.add_argument('--delay', '-d', action='store', default=30, type=float, metavar='sec', help='specify the delay in seconds before the program starts executing, default is 30')
+    parser.add_argument('--init', '-i', action='store_true', help='configure discord url and add autostart entry')
+    parser.add_argument('--ethernet', '-e', action='store_true', help="don't wait until wifi is connected before sending ip")
+    args = parser.parse_args()
+    
+    config_filename = os.getenv('HOME') + '/.config/UMARV.conf'
+
+    if args.init:
+        config_script(config_filename)
+        exit(0)
+
+    try:
+        url = get_url(config_filename)
+    except KeyError:
+        print('Discord webhook URL not found')
+        print(f'Please initialize this script by running \033[92m\033[1m{os.path.basename(sys.argv[0])} --init\033[0m')
+        exit(1)
+    print(f'Delaying for {args.delay} seconds...')
+    time.sleep(args.delay)
+    if not args.ethernet:
+        connect_wifi()
+    send_ip(url)
