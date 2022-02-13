@@ -25,7 +25,7 @@ desktop_file = desktop_file.format(os.path.abspath(__file__))
 def config_script(config_filename):
     print('Please input the Discord webhook URL. You can get this from an ARV lead.')
     print('The URL should be formatted like this: \033[94mhttps://discordapp.com/api/webhooks/[webhookid]/[webhooktoken]\033[0m')
-    url = input('URL: ')
+    url = input('URL: ').strip()
     config = configparser.ConfigParser()
     config['General'] = {'discord_webhook': url}
     with open(config_filename, 'w') as f:
